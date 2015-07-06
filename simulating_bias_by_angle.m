@@ -1,11 +1,12 @@
 %% dPAC: A method for debiasing phase-amplitude cross-frequency coupling
 % Joram van Driel, Roy Cox & Mike X Cohen
-% 2014
+% 2014/2015
 % --
-% This code accompanies the paper titled "dPAC: A method for debiasing 
-% phase-amplitude cross-frequency coupling". Below, simulations are run to
-% test three phase-amplitude cross-frequency copuling measures (PAC, dPAC
-% and MI) as a function of phase clustering bias and coupling angle.
+% This code accompanies the paper titled "Phase clustering bias in
+% phase-amplitude cross-frequency coupling and its removal". Below, 
+% simulations are run to test four phase-amplitude cross-frequency 
+% copuling measures (PAC, dPAC MI and PLV) as a function of phase 
+% clustering bias and coupling angle.
 % Using the code without following the paper may lead to confusion, 
 % incorrect data analyses, and misinterpretations of results. 
 % The authors assume no responsibility for inappropriate or incorrect use 
@@ -13,7 +14,7 @@
 
 clear, close all
 
-cd('path\to\folder'); % -- change directory if you want to save output and/or plots
+cd('Z:\PhD\dPAC'); % -- change directory if you want to save output and/or plots
 
 %% Ingredients
 
@@ -33,10 +34,10 @@ biasincrease = logspace(log10(5),log10(0.5)); % -- parameter used for different 
 
 %% Initialize variables
 
-num_time_shifts = 51; % -- angle-shift loop-resolution; set this to a lower value to speed up the analysis
+num_time_shifts = 50; % -- angle-shift loop-resolution; set this to a lower value to speed up the analysis
 time_shifts = round(linspace(1,51,num_time_shifts));
 
-num_bias_levels = 50; % -- bias-level loop-resolution; set this to a lower value to speed up the analysis
+num_bias_levels = 51; % -- bias-level loop-resolution; set this to a lower value to speed up the analysis
 bias_levels = round(linspace(1,50,num_bias_levels));
 
  % -- if the simulation is run with non-coupled signals, temporally shifting theta will have no effect, so we can skip this part
@@ -45,8 +46,7 @@ if ~coupling,
     time_shifts = 0; 
 end
 
-[PAC,dPAC,MI, PACz,dPACz,MIz] = deal( zeros(num_bias_levels,num_time_shifts) );  % -- initialize output matrices: 50 clustering levels and 51 PAC angles  
-
+[PAC,dPAC,MI,PLV, PACz,dPACz,MIz,PLVz] = deal( zeros(num_bias_levels,num_time_shifts) );  % -- initialize output matrices: 50 clustering levels and 51 PAC angles  
 
 %% Simulation
 
@@ -84,6 +84,12 @@ gammapower_bin = gammapower_bin ./ sum(gammapower_bin);
 
 MI_nobias = (log(nbins) + sum(gammapower_bin.*log(gammapower_bin)) ) ./ log(nbins);
 
+%% -- Phase-locking value (Cohen, 2008; Colgin et al 2009)
+
+gammapower_phase = angle(hilbert(detrend(gammapower))); % -- note: hilbert transform of power envelope of complex signal
+PLV_nobias = abs(mean(exp(1i*(thetaphase-gammapower_phase)))); % -- gives coherence of 1.0
+
+
 %%
 % -- empty strings to report progress of loop
 msg='';
@@ -103,7 +109,7 @@ for ti = time_shifts % -- ti is the index of the temporal shift, to change the a
     % -- second loop: over different levels of phase clustering bias
     
     nii = 0; % -- initialize loop-counter variables
-    for ni = bias_levels % -- ni is the index of degree of phase clustering bias (bias will decrease with increasing ni)
+    for ni = bias_levels % -- ni is the index of degree of phase clustering bias (bias will increase with increasing ni)
         nii = nii+1; % -- increment counter
         
         % -- display progress
@@ -122,7 +128,12 @@ for ti = time_shifts % -- ti is the index of the temporal shift, to change the a
         for k=1:length(pidist)
             [~,idx(k)]=min(abs(pidist(k)-thetaphase));
         end
-        idx=sort(idx);
+        idx=sort(idx); % -- note that this gives an extreme case of 
+        % non-uniform phase angles; re-plotting the time series shows 
+        % highly distorted time series; however, using the 'idx' variable,
+        % the corresponding gammapower values are retained along with the
+        % (unnatural) selection of thetaphase values, so (d)PAC can still
+        % be calculated
 
         % -- in below variables, G stands for 'gaussian'
         thetaphaseG = thetaphase(idx); % -- theta phase angles now have clustering around 0pi
@@ -147,11 +158,16 @@ for ti = time_shifts % -- ti is the index of the temporal shift, to change the a
         
         MI(nii,tii) = (log(nbins) + sum(gammapowerG_bin.*log(gammapowerG_bin)) ) ./ log(nbins);
 
+        %% -- compute PLV
+        
+        gammapowerG_phase = angle(hilbert(detrend(gammapowerG))); % -- note: hilbert transform of power envelope of complex signal
+        PLV(nii,tii) = abs(mean(exp(1i*(thetaphaseG-gammapowerG_phase)))); 
+        
         %% now with permutation testing
         
         if permutation
 
-            [fake_PAC,fake_dPAC,fake_MI] = deal(zeros(1,nperm)); % -- initialize matrices that will store the null-disbribution of surrogate data
+            [fake_PAC,fake_dPAC,fake_MI,fake_PLV,fake_PAC_diff,fake_dPAC_diff,fake_MI_diff,fake_PLV_diff] = deal(zeros(1,nperm)); % -- initialize matrices that will store the null-disbribution of surrogate data
 
             for permi = 1:nperm
 
@@ -160,10 +176,11 @@ for ti = time_shifts % -- ti is the index of the temporal shift, to change the a
                 cutLoc = 5 + randperm(ntimepointsG-10); % -- 5 and 10 prevent the first and last time points from being selected
                 cutLoc = cutLoc(1);
                 thetaphaseG_shuffled = thetaphaseG([cutLoc:end 1:cutLoc-1]);
-
+                
                 fake_PAC(permi)  = abs(mean(exp(1i*thetaphaseG_shuffled) .* gammapowerG)); % -- compute surrogate PAC
-                fake_dPAC(permi) = abs(mean( (exp(1i*thetaphaseG_shuffled) - mean(exp(1i*thetaphaseG_shuffled))) .* gammapowerG)); % -- compute surrogate dPAC
-
+                fake_dPAC(permi) = abs(mean((exp(1i*thetaphaseG_shuffled) - mean(exp(1i*thetaphaseG_shuffled))) .* gammapowerG)); % -- compute surrogate dPAC
+                fake_PLV(permi)  = abs(mean(exp(1i*(thetaphaseG_shuffled-gammapowerG_phase)))); % -- compute surrogate PLV
+                
                 % -- compute MI (Tort et al., 2010)
                 thetaphaseG_bin_shuffled = ceil( tiedrank( thetaphaseG_shuffled ) / (ntimepointsG / nbins) );
                 gammapowerG_bin = zeros(1,nbins);
@@ -171,8 +188,8 @@ for ti = time_shifts % -- ti is the index of the temporal shift, to change the a
                     gammapowerG_bin(k) = squeeze(mean(gammapowerG(thetaphaseG_bin_shuffled==k)));
                 end
                 gammapowerG_bin = gammapowerG_bin ./ sum(gammapowerG_bin);
+                
                 fake_MI(permi) = (log(nbins) + sum(gammapowerG_bin.*log(gammapowerG_bin)) ) ./ log(nbins);
-
             end
 
             % -- below, the zscore is defined by observed value minus mean of
@@ -181,6 +198,8 @@ for ti = time_shifts % -- ti is the index of the temporal shift, to change the a
             PACz(nii,tii)  = (squeeze(PAC(nii,tii))' - squeeze(mean(fake_PAC))) ./ squeeze(std(fake_PAC)); 
             dPACz(nii,tii) = (squeeze(dPAC(nii,tii))' - squeeze(mean(fake_dPAC))) ./ squeeze(std(fake_dPAC)); 
             MIz(nii,tii)   = (squeeze(MI(nii,tii))' - squeeze(mean(fake_MI))) ./ squeeze(std(fake_MI));
+            PLVz(nii,tii)  = (squeeze(PLV(nii,tii))' - squeeze(mean(fake_PLV))) ./ squeeze(std(fake_PLV));
+            
         end
     end
     
@@ -191,13 +210,13 @@ fprintf(' done\n');
 if save_results
     % -- save the results if you want, in an appropriate directory
     if coupling
-        filename = 'dPAC_MI_simresults_biasincrease.mat';
+        filename = 'dPAC_MI_PLV_simresults_biasincrease.mat';
     else
-        filename = 'dPAC_MI_simresults_biasincrease_NOcoupling.mat';
+        filename = 'dPAC_MI_PLV_simresults_biasincrease_NOcoupling.mat';
     end
     save(filename,....
-        'PAC_nobias', 'dPAC_nobias', 'MI_nobias',...
-        'PAC', 'dPAC', 'MI', 'PACz', 'dPACz', 'MIz',...
+        'PAC_nobias', 'dPAC_nobias', 'MI_nobias','PLV_nobias',...
+        'PAC', 'dPAC', 'MI', 'PLV', 'PACz', 'dPACz', 'MIz', 'PLVz',...
         'num_bias_levels', 'num_time_shifts');
 end
 
@@ -220,48 +239,83 @@ if coupling,
     %%
     angleaxis = 0:pi/(num_time_shifts-1):pi; % -- the x-axis will show coupling angles in fractions of pi
     
-    figure('position',[600 300 1000 400]); % -- these values may need to be changed depending on screen settings
+    figure('position',[600 300 1200 400]); % -- these values may need to be changed depending on screen settings
     
     % -- plot PAC; from every angle-by-phase-clustering point, the "pure" PAC
-    % -- (no bias and 0pi coupling) is subtracted
-    subplot(231);
-    contourf(angleaxis,1:num_bias_levels,(PAC - PAC_nobias),40,'linestyle','none'); % -- here, contourf is used for smooth contours; alternatively, you can use imagesc (which requires flipping the y-axis direction)
+    % -- (no bias and 0pi coupling) is subtracted, and %change is computed
+    subplot(241);
+    PAC_perc = 100.*((PAC - PAC_nobias)./PAC_nobias);
+    contourf(angleaxis,1:num_bias_levels,PAC_perc,40,'linestyle','none'); % -- here, contourf is used for smooth contours; alternatively, you can use imagesc (which requires flipping the y-axis direction)
     cl = max(abs(get(gca,'clim')));
     set(gca,'clim',[-cl cl],...
         'ytick',[1 num_bias_levels],'yticklabel',{'min','max'},...
         'xtick',0:pi/2:pi,'xticklabel',{'0', '1/2', '1'}); colorbar
     ylabel('PC bias')
+    xlabel('Coupling angle (\pi)')
     title('PAC')
     
+    PAC_thresh = zeros(size(PAC_perc));
+    PAC_thresh(PAC_perc>2*std(PAC_perc(:)) | PAC_perc<-2*std(PAC_perc(:)))=1;
+    hold on
+    contour(angleaxis,1:num_bias_levels,PAC_thresh,1,'k','LineWidth',1) % -- plot 2SD as a qualitative threshold of strength of deviation from true coupling
+    
     % -- the same now for dPAC
-    subplot(232);
-    contourf(angleaxis,1:num_bias_levels,(dPAC - dPAC_nobias),40,'linestyle','none');
+    subplot(242);
+    dPAC_perc = 100.*((dPAC - dPAC_nobias)./dPAC_nobias);
+    contourf(angleaxis,1:num_bias_levels,dPAC_perc,40,'linestyle','none');
+    cl = max(abs(get(gca,'clim')));
     set(gca,'clim',[-cl cl],...
         'ytick',[1 num_bias_levels],'yticklabel',{},...
         'xtick',0:pi/2:pi,'xticklabel',{'0', '1/2', '1'}); colorbar
-    xlabel('Clustering angle (\pi)')
     title('dPAC')
     
+    dPAC_thresh = zeros(size(dPAC_perc));
+    dPAC_thresh(dPAC_perc>2*std(dPAC_perc(:)) | dPAC_perc<-2*std(dPAC_perc(:)))=1;
+    hold on
+    contour(angleaxis,1:num_bias_levels,dPAC_thresh,1,'k','LineWidth',1) % -- plot p<0.001 clusters as overlaid black line
+    
     % -- the same now for MI
-    subplot(233);
-    contourf(angleaxis,1:num_bias_levels,(MI - MI_nobias),40,'linestyle','none');
+    MI_perc = 100.*((MI - MI_nobias)./MI_nobias);
+    subplot(243);
+    contourf(angleaxis,1:num_bias_levels,MI_perc,40,'linestyle','none');
     cl = max(abs(get(gca,'clim')));
     set(gca,'clim',[-cl cl],...
-        'ytick',[1 num_bias_levels],'yticklabel',{'min','max'},...
+        'ytick',[1 num_bias_levels],'yticklabel',{ },...
         'xtick',0:pi/2:pi,'xticklabel',{'0', '1/2', '1'}); colorbar
     title('MI')
     
+    MI_thresh = zeros(size(MI_perc));
+    MI_thresh(MI_perc>2*std(MI_perc(:)) | MI_perc<-2*std(MI_perc(:)))=1;
+    hold on
+    contour(angleaxis,1:num_bias_levels,MI_thresh,1,'k','LineWidth',1) % -- plot p<0.001 clusters as overlaid black line
+
+    % -- the same now for PLV
+    PLV_perc = 100.*((PLV - PLV_nobias)./PLV_nobias);
+    subplot(244);
+    contourf(angleaxis,1:num_bias_levels,PLV_perc,40,'linestyle','none');
+    cl = max(abs(get(gca,'clim')));
+    set(gca,'clim',[-cl cl],...
+        'ytick',[1 num_bias_levels],'yticklabel',{ },...
+        'xtick',0:pi/2:pi,'xticklabel',{'0', '1/2', '1'}); colorbar
+    title('PLV')
+    
+    PLV_thresh = zeros(size(PLV_perc));
+    PLV_thresh(PLV_perc>2*std(PLV_perc(:)) | PLV_perc<-2*std(PLV_perc(:)))=1;
+    hold on
+    contour(angleaxis,1:num_bias_levels,PLV_thresh,1,'k','LineWidth',1) % -- plot p<0.001 clusters as overlaid black line
+
     if plot_like_paper,
-        addpath(genpath('path\to\dPAC\scripts\plot_like_paper\')); % -- change path accordingly
+        addpath(genpath('Z:\PhD\dPAC\plot_like_paper')); % -- change path accordingly
         colormap(othercolor('BuDRd_18'))
     end
     
 %%
     % -- plot PACz
-    if plot_like_paper, figure('position',[600 300 1000 400]); end % -- new figure needed to have different colormaps
-    subplot(234); % -- PACz
-    contourf(angleaxis,1:num_bias_levels,PACz,40,'linestyle','none');
-    set(gca,'clim',[-4 4],...
+    if plot_like_paper, figure('position',[600 300 1200 400]); end % -- new figure needed to have different colormaps
+    subplot(245); % -- PACz
+    contourf(angleaxis,1:num_bias_levels,squeeze(PACz),40,'linestyle','none');
+    cl = max(abs(get(gca,'clim')));
+    set(gca,'clim',[-cl cl],...
         'ytick',[1 num_bias_levels],'yticklabel',{'min','max'},...
         'xtick',0:pi/2:pi,'xticklabel',{'0', '1/2', '1'}); colorbar
     ylabel('PC bias')
@@ -286,7 +340,7 @@ if coupling,
             end
         end
         hold on
-        contour(angleaxis,1:num_bias_levels,PACz_thres_001,1,'y','LineWidth',1) % -- plot p<0.001 clusters as overlaid black line
+        contour(angleaxis,1:num_bias_levels,PACz_thres_001,1,'k','LineWidth',1) % -- plot p<0.001 clusters as overlaid black line
         [r,c]=bwlabel(PACz_thres_05,4); % -- function that searches for 2D clusters
         for ci=1:c
             if sum(any(r==ci,1))<5 || sum(any(r==ci,2))<5 % -- arbitrary constraint: at least 5 contiguous points
@@ -298,22 +352,33 @@ if coupling,
     end
     
     % -- plot dPACz
-    subplot(235); 
+    subplot(246); 
     contourf(angleaxis,1:num_bias_levels,dPACz,40,'linestyle','none');
-    set(gca,'clim',[-4 4],...
+    cl = max(abs(get(gca,'clim')));
+    set(gca,'clim',[-cl cl],...
         'ytick',[1 num_bias_levels],'yticklabel',{},...
         'xtick',0:pi/2:pi,'xticklabel',{'0', '1/2', '1'}); colorbar
     xlabel('Clustering angle (\pi)')
     title('dPACz')
     
     % -- plot MIz
-    subplot(236); 
+    subplot(247); 
     contourf(angleaxis,1:num_bias_levels,MIz,40,'linestyle','none');
-    set(gca,'clim',[-4 4],...
+    cl = max(abs(get(gca,'clim')));
+    set(gca,'clim',[-cl cl],...
         'ytick',[1 num_bias_levels],'yticklabel',{},...
         'xtick',0:pi/2:pi,'xticklabel',{'0', '1/2', '1'}); colorbar
     title('MIz')
     
+    % -- plot PLVz
+    subplot(248); 
+    contourf(angleaxis,1:num_bias_levels,PLVz,40,'linestyle','none');
+    cl = max(abs(get(gca,'clim')));
+    set(gca,'clim',[-cl cl],...
+        'ytick',[1 num_bias_levels],'yticklabel',{},...
+        'xtick',0:pi/2:pi,'xticklabel',{'0', '1/2', '1'}); colorbar
+    title('PLVz')
+
     if plot_like_paper,
         oldmap = colormap;
         newmap = diverging_map(0:1/length(oldmap):1,[0 0 1],[0 1 0]);
@@ -384,34 +449,43 @@ if ~coupling,
     figure('position',[500 200 800 400])
     
     % -- plot contrast between bias > no bias
-    subplot(231)
-    plot(1:num_bias_levels,(PAC - PAC_nobias),'k','linewidth',1);
+    subplot(241)
+    plot(1:num_bias_levels,(100.*((PAC - PAC_nobias)./PAC_nobias)),'k','linewidth',1);
     yl = max(get(gca,'ylim'));
     set(gca,'ylim',[-yl/5 yl],'xlim',[1 num_bias_levels]);
     ylabel('Coupling value')
     title('PAC')
     box off
     
-    subplot(232)
-    plot(1:num_bias_levels,(dPAC - dPAC_nobias),'k','linewidth',1);
+    subplot(242)
+    plot(1:num_bias_levels,(100.*((dPAC - dPAC_nobias)./dPAC_nobias)),'k','linewidth',1);
+    yl = max(get(gca,'ylim'));
     set(gca,'ylim',[-yl/5 yl],'xlim',[1 num_bias_levels]);
     title('dPAC')
     xlabel('Phase bias level');
     box off
     
-    subplot(233)
-    plot(1:num_bias_levels,(MI - MI_nobias),'k','linewidth',1); 
+    subplot(243)
+    plot(1:num_bias_levels,(100.*((MI - MI_nobias)./MI_nobias)),'k','linewidth',1); 
     yl = max(get(gca,'ylim'));
     set(gca,'ylim',[-yl/5 yl],'xlim',[1 num_bias_levels]);
     set(gca,'xlim',[1 num_bias_levels]);
     title('MI')
     box off
     
+    subplot(244)
+    plot(1:num_bias_levels,(100.*((PLV - PLV_nobias)./PLV_nobias)),'k','linewidth',1); 
+    yl = max(get(gca,'ylim'));
+    set(gca,'ylim',[-yl/5 yl],'xlim',[1 num_bias_levels]);
+    set(gca,'xlim',[1 num_bias_levels]);
+    title('PLV')
+    box off
+
     % -- plot z-values of permutation test
     threshold_001 = icdf('normal',1-0.001/2,0,1); % -- z-value corresponding to 99.9% or p = 0.001 of z-distribution
     threshold_05 = icdf('normal',1-0.05/2,0,1); % -- z-value corresponding to 95% or p = 0.05 of z-distribution
 
-    subplot(234)
+    subplot(245)
     plot(1:num_bias_levels,PACz,'k','linewidth',1); hold on
     plot([1 num_bias_levels],[threshold_001 threshold_001],'--k'); % -- 3.3 is the z-value threshold corresponding to p=0.001
     plot([1 num_bias_levels],[-threshold_001 -threshold_001],'--k');
@@ -422,7 +496,7 @@ if ~coupling,
     title('PACz')
     box off
     
-    subplot(235)
+    subplot(246)
     plot(1:num_bias_levels,dPACz,'k','linewidth',1); hold on
     plot([1 num_bias_levels],[threshold_001 threshold_001],'--k'); % -- 3.3 is the z-value threshold corresponding to p=0.001
     plot([1 num_bias_levels],[-threshold_001 -threshold_001],'--k');
@@ -433,7 +507,19 @@ if ~coupling,
     title('dPACz')
     box off
     
-    subplot(236)
+    subplot(247)
+    h1=plot(1:num_bias_levels,MIz,'k','linewidth',1); hold on
+    h2=plot([1 num_bias_levels],[threshold_001 threshold_001],'--k'); % -- 3.3 is the z-value threshold corresponding to p=0.001
+    h3=plot([1 num_bias_levels],[threshold_05 threshold_05],'--r'); % -- 1.96 is the z-value threshold corresponding to p=0.05
+    hasbehavior(h1,'legend',false); hasbehavior(h2,'legend',false);  hasbehavior(h3,'legend',false);
+    plot([1 num_bias_levels],[-threshold_001 -threshold_001],'--k');
+    plot([1 num_bias_levels],[-threshold_05 -threshold_05],'--r');
+    set(gca,'xlim',[1 num_bias_levels]);
+    %legend('p = 0.001','p = 0.05')
+    title('MIz')
+    box off
+       
+    subplot(248)
     h1=plot(1:num_bias_levels,MIz,'k','linewidth',1); hold on
     h2=plot([1 num_bias_levels],[threshold_001 threshold_001],'--k'); % -- 3.3 is the z-value threshold corresponding to p=0.001
     h3=plot([1 num_bias_levels],[threshold_05 threshold_05],'--r'); % -- 1.96 is the z-value threshold corresponding to p=0.05
@@ -442,7 +528,7 @@ if ~coupling,
     plot([1 num_bias_levels],[-threshold_05 -threshold_05],'--r');
     set(gca,'xlim',[1 num_bias_levels]);
     legend('p = 0.001','p = 0.05')
-    title('MIz')
+    title('PLVz')
     box off
     
 end
