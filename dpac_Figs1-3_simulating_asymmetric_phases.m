@@ -14,7 +14,7 @@
 
 clear all
 
-cd('Z:\PhD\dPAC'); % -- change directory if you want to save output and/or plots
+% cd('some/path/'); % -- change directory if you want to save output and/or plots
 
 %% parameters
 
@@ -23,7 +23,7 @@ t = 1/srate:1/srate:10;    % -- time points: 10000 1ms steps; 10 seconds
 ntimepoints = length(t);   % -- get number of timepoints
 centTimes = 0:0.2:10;      % -- center times for 'oscillatory' peaks; corresponds to 5 Hz
 fpow = 30;                 % -- frequency for power: gamma
-nbins = 18;                % -- number of bins used for Tort's MI
+nbins = 18;                % -- number of bins used for Tort's MI (default used in paper: 18)
 
 gausWidth = linspace(0.001,0.08,50); % -- gaussian width of the 'oscillatory' peaks
 
@@ -70,7 +70,7 @@ for in_anti = 1:2 % -- simulate two scenarios: coupling angle in/anti-phase with
         
         % Tort's Modulation Index (Tort et al., 2010)
         
-        thetaphase_bin = ceil( tiedrank( thetaphase ) / (ntimepoints / nbins) ); % -- bin the theta phase angles into nbins
+        thetaphase_bin = ceil( tiedrank( thetaphase ) / (ntimepoints / nbins) ); % -- bin the theta phase angles into nbins -- NOTE: tiedrank also exists in eeglab toolbox; when added to path, may cause conflict
         gammapow_bin = zeros(1,nbins);
         for k=1:nbins
             gammapow_bin(k) = squeeze(mean(gammapow(thetaphase_bin==k))); % -- compute mean gamma power in each bin
@@ -220,7 +220,7 @@ for q=1:2 % -- loop over the two examples
     legend(['PAC = ' num2str(abs(tmppac))]);
 
     % compute MI
-    thetaphase_bin = ceil( tiedrank( thetaphase ) / (ntimepoints / nbins) ); % -- bin the theta phase angles into nbins
+    thetaphase_bin = ceil( tiedrank( thetaphase ) / (ntimepoints / nbins) ); % -- bin the theta phase angles into nbins -- NOTE: tiedrank also exists in eeglab toolbox; when added to path, may cause conflict
     gammapow_bin = zeros(1,nbins);
     for k=1:nbins
         gammapow_bin(k) = squeeze(mean(gammapow(thetaphase_bin==k))); % -- compute mean gamma power in each bin
@@ -239,7 +239,7 @@ for q=1:2 % -- loop over the two examples
 end
 
 
-%% plot of different CFC measures (figure 3A)
+%% plot of different CFC measures (Figure 3A)
 
 figure('position',[400 100 400 400])
 

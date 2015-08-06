@@ -14,14 +14,15 @@
 
 clear, close all
 
-cd('Z:\PhD\dPAC'); % -- change directory if you want to save output and/or plots
+% cd('some/path/'); % -- change directory if you want to save output and/or plots
 
 %% Ingredients
 
-save_results = true;
+save_results = false; % set to true if you want to save the results; may need to check paths and current directory
+plot_like_paper = false; % set to true for different colormaps than default jet (works if zip file containing all code is downloaded properly)
 coupling = true;    % -- set to false to run simulation without coupling (to test for false positives)
 permutation = true; % -- run a permutation test? slows down simulation!
-nperm = 1000;       % -- number of permutations; set to lower number to speed up analysis
+nperm = 1000;       % -- number of permutations; set to lower number to speed up analysis (default used in paper: 1000)
             
 srate = 1000;              % -- sampling rate
 t = 1/srate:1/srate:10;    % -- time points: 10 seconds
@@ -34,10 +35,10 @@ biasincrease = logspace(log10(5),log10(0.5)); % -- parameter used for different 
 
 %% Initialize variables
 
-num_time_shifts = 50; % -- angle-shift loop-resolution; set this to a lower value to speed up the analysis
+num_time_shifts = 50; % -- angle-shift loop-resolution; set this to a lower value to speed up the analysis (default used in paper: 50)
 time_shifts = round(linspace(1,51,num_time_shifts));
 
-num_bias_levels = 51; % -- bias-level loop-resolution; set this to a lower value to speed up the analysis
+num_bias_levels = 51; % -- bias-level loop-resolution; set this to a lower value to speed up the analysis default used in paper: 51)
 bias_levels = round(linspace(1,50,num_bias_levels));
 
  % -- if the simulation is run with non-coupled signals, temporally shifting theta will have no effect, so we can skip this part
@@ -73,8 +74,8 @@ dPAC_nobias = abs(mean( (exp(1i*thetaphase) - debias_term) .* gammapower)); % --
 
 %% -- compute MI (Tort et al., 2010)
 
-nbins = 18;
-thetaphase_bin = ceil( tiedrank( thetaphase ) / (ntimepoints / nbins) );
+nbins = 18; % (default used in paper: 18)
+thetaphase_bin = ceil( tiedrank( thetaphase ) / (ntimepoints / nbins) );  % -- NOTE: tiedrank also exists in eeglab toolbox; when added to path, may cause conflict
 
 gammapower_bin = zeros(1,nbins);
 for k=1:nbins
@@ -148,7 +149,7 @@ for ti = time_shifts % -- ti is the index of the temporal shift, to change the a
                 
         %% -- compute MI (Tort et al., 2010)
         
-        thetaphaseG_bin = ceil( tiedrank( thetaphaseG ) / (ntimepointsG / nbins) );
+        thetaphaseG_bin = ceil( tiedrank( thetaphaseG ) / (ntimepointsG / nbins) ); %  -- NOTE: tiedrank also exists in eeglab toolbox; when added to path, may cause conflict
         
         gammapowerG_bin = zeros(1,nbins);
         for k=1:nbins
@@ -182,7 +183,7 @@ for ti = time_shifts % -- ti is the index of the temporal shift, to change the a
                 fake_PLV(permi)  = abs(mean(exp(1i*(thetaphaseG_shuffled-gammapowerG_phase)))); % -- compute surrogate PLV
                 
                 % -- compute MI (Tort et al., 2010)
-                thetaphaseG_bin_shuffled = ceil( tiedrank( thetaphaseG_shuffled ) / (ntimepointsG / nbins) );
+                thetaphaseG_bin_shuffled = ceil( tiedrank( thetaphaseG_shuffled ) / (ntimepointsG / nbins) ); %  -- NOTE: tiedrank also exists in eeglab toolbox; when added to path, may cause conflict
                 gammapowerG_bin = zeros(1,nbins);
                 for k=1:nbins
                     gammapowerG_bin(k) = squeeze(mean(gammapowerG(thetaphaseG_bin_shuffled==k)));
@@ -220,21 +221,20 @@ if save_results
         'num_bias_levels', 'num_time_shifts');
 end
 
-%% Plot the result (Figure 4) -- only when coupling set to true
+%% Plot the result (Figure 5) -- only when coupling set to true
 
 if coupling,
     
     % -- in the paper, a particular colormap and colorscaling is used that
     % -- necessitates some third-party functions that are provided with the
     % -- code;
-    % -- set to false to use default jet map and symmetric color scaling
-    
-    plot_like_paper = true;
+    % -- in the preample, set variable plot_like_paper to false to use default jet map
     
     % -- when set to true, the othercolor function is used, which can be downloaded here: 
     % -- [http://nl.mathworks.com/matlabcentral/fileexchange/30564-othercolor]
     % -- the diverging_map function can be downloaded here:
     % -- [http://www.sandia.gov/~kmorel/documents/ColorMaps/diverging_map.m]
+    % -- NOTE: if zip file is downloaded properly, these functions need not be downloaded separately!
     
     %%
     angleaxis = 0:pi/(num_time_shifts-1):pi; % -- the x-axis will show coupling angles in fractions of pi
@@ -305,7 +305,8 @@ if coupling,
     contour(angleaxis,1:num_bias_levels,PLV_thresh,1,'k','LineWidth',1) % -- plot p<0.001 clusters as overlaid black line
 
     if plot_like_paper,
-        addpath(genpath('Z:\PhD\dPAC\plot_like_paper')); % -- change path accordingly
+        currdir = cd;
+        addpath(genpath([currdir filesep 'plot_like_paper'])); % -- make sure this path is correct; the plot_like_paper folder is part of the zip file containing all code
         colormap(othercolor('BuDRd_18'))
     end
     
@@ -385,7 +386,7 @@ if coupling,
         colormap(newmap)
     end
     
-    %% Example plot of different angle distributions + coupling angles (Figure 3)
+    %% Example plot of different angle distributions + coupling angles (Figure 4)
 
     figure('position',[400 100 500 500])
     bias2plot = [5 2.5 1.25 0.625];

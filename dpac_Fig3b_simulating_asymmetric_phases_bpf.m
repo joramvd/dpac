@@ -16,7 +16,7 @@
 
 clear all
 
-cd('Z:\PhD\dPAC'); % -- change directory if you want to save output and/or plots
+% cd('some/path/'); % -- change directory if you want to save output and/or plots
 
 %% parameters
 
@@ -67,10 +67,10 @@ for in_anti = 1:2 % -- simulate two scenarios: phase clustering bias as in vs. a
         gammaband           = [25 35];
         
         theta_filt_order    = round(3*(srate/thetaband(1)));
-        theta_filterweights = fir1(theta_filt_order,[mean(thetaband)-(thetaband(2)-thetaband(1)) mean(thetaband)+(thetaband(2)-thetaband(1))]/(srate/2));
+        theta_filterweights = fir1(theta_filt_order,[mean(thetaband)-(thetaband(2)-thetaband(1)) mean(thetaband)+(thetaband(2)-thetaband(1))]/(srate/2));  % -- NOTE: if eeglab is added to path, remove eeglab/plugins/biosig from path
         
         gamma_filt_order    = round(3*(srate/gammaband(1)));
-        gamma_filterweights = fir1(gamma_filt_order,[mean(gammaband)-(gammaband(2)-gammaband(1)) mean(gammaband)+(gammaband(2)-gammaband(1))]/(srate/2));
+        gamma_filterweights = fir1(gamma_filt_order,[mean(gammaband)-(gammaband(2)-gammaband(1)) mean(gammaband)+(gammaband(2)-gammaband(1))]/(srate/2)); % -- NOTE: if eeglab is added to path, remove eeglab/plugins/biosig from path
         
         thetafilt = filtfilt(theta_filterweights,1,thetagamma); thetafilt = thetafilt(1001:end-1000);
         gammafilt = filtfilt(gamma_filterweights,1,thetagamma); gammafilt = gammafilt(1001:end-1000);
@@ -89,7 +89,7 @@ for in_anti = 1:2 % -- simulate two scenarios: phase clustering bias as in vs. a
         
         % -- Tort's Modulation Index
         
-        thetaphase_bin = ceil( tiedrank( thetaphase ) / (ntimepoints / nbins) ); % -- bin the theta phase angles into nbins
+        thetaphase_bin = ceil( tiedrank( thetaphase ) / (ntimepoints / nbins) ); % -- bin the theta phase angles into nbins -- NOTE: tiedrank also exists in eeglab toolbox; when added to path, may cause conflict
         gammapow_bin = zeros(1,nbins);
         for k=1:nbins
             gammapow_bin(k) = squeeze(mean(gammapow(thetaphase_bin==k))); % -- compute mean gamma power in each bin
@@ -107,11 +107,11 @@ for in_anti = 1:2 % -- simulate two scenarios: phase clustering bias as in vs. a
 end
 
 
-%% plot of different CFC measures
+%% plot of different CFC measures (Figure 3B)
 
-figure('position',[400 100 400 600])
+figure('position',[400 100 400 400])
 
-subplot(321)
+subplot(221)
 plot(gausWidth,pc(1,:),'b','linewidth',1); hold on
 plot(gausWidth,pc(2,:),':b','linewidth',2);
 set(gca,'xscale','log','xtick',[0.001 0.004 0.016 0.064],'ylim',[0 0.8]) %
@@ -131,7 +131,7 @@ plot(gausWidth,pc(1,:),'parent',ax2,'color','b','linewidth',1); hold on
 set(gca,'xscale','log','xtick',[0.001 0.064],'ylim',[0 0.006])
 box off
 
-subplot(322)
+subplot(222)
 plot(gausWidth,pac(1,:),'r','linewidth',1); hold on
 plot(gausWidth,pac(2,:),':r','linewidth',2); 
 set(gca,'xscale','log','xtick',[0.001 0.004 0.016 0.064])
@@ -139,14 +139,14 @@ title('(d)PAC')
 box off
 legend('anti-phase','in-phase')
 
-subplot(323)
+subplot(223)
 plot(gausWidth,mi(1,:),'r','linewidth',1); hold on
 plot(gausWidth,mi(2,:),':r','linewidth',2);
 set(gca,'xscale','log','xtick',[0.001 0.004 0.016 0.064],'ylim',[0 0.1])
 title('MI')
 box off
 
-subplot(324)
+subplot(224)
 plot(gausWidth,plv(1,:),'r','linewidth',1); hold on
 plot(gausWidth,plv(2,:),':r','linewidth',2);
 set(gca,'xscale','log','xtick',[0.001 0.004 0.016 0.064])

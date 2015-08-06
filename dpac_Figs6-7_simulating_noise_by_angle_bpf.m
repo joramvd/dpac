@@ -17,14 +17,15 @@
 
 clear, close all
 
-cd('Z:\PhD\dPAC\'); % -- change directory if you want to save output and/or plots
+% cd('some/path/'); % -- change directory if you want to save output and/or plots
 
 %% Ingredients
 
-save_results = false;
+save_results = false; % set to true if you want to save the results; may need to check paths and current directory
+plot_like_paper = false; % set to true for different colormaps than default jet (works if zip file containing all code is downloaded properly)
 coupling = true;    % -- set to false to run simulation without coupling (to test for false positives)
 permutation = true; % -- run a permutation test? slows down simulation!
-nperm = 1000;       % -- number of permutations; set to lower number to speed up analysis
+nperm = 1000;       % -- number of permutations; set to lower number to speed up analysis (default used in paper: 1000)
             
 srate = 1000;              % -- sampling rate
 t = 1/srate:1/srate:12;    % -- time points: 10000 1ms steps; 12 seconds (10 seconds plus padded 1000 ms on each side for edge artifacts)
@@ -43,10 +44,10 @@ noiseincrease = linspace(0,10,50);  % -- parameter used for gaussian variance, t
 
 %% Initialize variables
 
-num_time_shifts = 51; % -- angle-shift loop-resolution; set this to a lower value to speed up the analysis
+num_time_shifts = 51; % -- angle-shift loop-resolution; set this to a lower value to speed up the analysis  (default used in paper: 51)
 time_shifts = round(linspace(1,51,num_time_shifts));
 
-num_noise_levels = 50; % -- noise-level loop-resolution; set this to a lower value to speed up the analysis
+num_noise_levels = 50; % -- noise-level loop-resolution; set this to a lower value to speed up the analysis  (default used in paper: 50)
 noise_levels = round(linspace(1,50,num_noise_levels));
 
  % -- if the simulation is run with non-coupled signals, temporally shifting theta will have no effect, so we can skip this part
@@ -79,10 +80,10 @@ thetaband           = [3 7];
 gammaband           = [25 35];
 
 theta_filt_order    = round(3*(srate/thetaband(1)));
-theta_filterweights = fir1(theta_filt_order,[mean(thetaband)-(thetaband(2)-thetaband(1)) mean(thetaband)+(thetaband(2)-thetaband(1))]/(srate/2));
+theta_filterweights = fir1(theta_filt_order,[mean(thetaband)-(thetaband(2)-thetaband(1)) mean(thetaband)+(thetaband(2)-thetaband(1))]/(srate/2)); % -- NOTE: if eeglab is added to path, remove eeglab/plugins/biosig from path
 
 gamma_filt_order    = round(3*(srate/gammaband(1)));
-gamma_filterweights = fir1(gamma_filt_order,[mean(gammaband)-(gammaband(2)-gammaband(1)) mean(gammaband)+(gammaband(2)-gammaband(1))]/(srate/2));
+gamma_filterweights = fir1(gamma_filt_order,[mean(gammaband)-(gammaband(2)-gammaband(1)) mean(gammaband)+(gammaband(2)-gammaband(1))]/(srate/2)); % -- NOTE: if eeglab is added to path, remove eeglab/plugins/biosig from path
 
 thetafilt = filtfilt(theta_filterweights,1,real(thetagamma));
 gammafilt = filtfilt(gamma_filterweights,1,real(thetagamma));
@@ -102,7 +103,7 @@ PAC_nobias_nonoise  = abs(mean(exp(1i*thetaphase) .* gammapower));
 dPAC_nobias_nonoise = abs(mean( (exp(1i*thetaphase) - mean(exp(1i*thetaphase))) .* gammapower));
 
 nbins = 18;
-thetaphase_bin = ceil( tiedrank( thetaphase ) / (ntimepoints / nbins) );
+thetaphase_bin = ceil( tiedrank( thetaphase ) / (ntimepoints / nbins) ); %  -- NOTE: tiedrank also exists in eeglab toolbox; when added to path, may cause conflict
 gammapower_bin = zeros(1,nbins);
 
 for k=1:nbins
@@ -162,7 +163,7 @@ for ti = time_shifts % -- ti is the index of the temporal shift, to change the a
     PAC_nonoise(tii)  = abs(mean(exp(1i*thetaphaseG) .* gammapowerG));
     dPAC_nonoise(tii) = abs(mean( (exp(1i*thetaphaseG) - mean(exp(1i*thetaphaseG))) .* gammapowerG));
         
-    thetaphaseG_bin = ceil( tiedrank( thetaphaseG ) / (ntimepointsG / nbins) );
+    thetaphaseG_bin = ceil( tiedrank( thetaphaseG ) / (ntimepointsG / nbins) ); %  -- NOTE: tiedrank also exists in eeglab toolbox; when added to path, may cause conflict
     gammapowerG_bin = zeros(1,nbins);
     for k=1:nbins
         gammapowerG_bin(k) = squeeze(mean(gammapowerG(thetaphaseG_bin==k)));
@@ -231,7 +232,7 @@ for ti = time_shifts % -- ti is the index of the temporal shift, to change the a
         PAC(nii,tii)  = abs(mean(exp(1i*thetaphaseG) .* gammapowerG));
         dPAC(nii,tii) = abs(mean( (exp(1i*thetaphaseG) - mean(exp(1i*thetaphaseG))) .* gammapowerG));
                         
-        thetaphaseG_bin = ceil( tiedrank( thetaphaseG ) / (ntimepointsG / nbins) );
+        thetaphaseG_bin = ceil( tiedrank( thetaphaseG ) / (ntimepointsG / nbins) ); %  -- NOTE: tiedrank also exists in eeglab toolbox; when added to path, may cause conflict
         gammapowerG_bin = zeros(1,nbins);
         for k=1:nbins
             gammapowerG_bin(k) = squeeze(mean(gammapowerG(thetaphaseG_bin==k)));
@@ -261,7 +262,7 @@ for ti = time_shifts % -- ti is the index of the temporal shift, to change the a
                 fake_dPAC(permi) = abs(mean( (exp(1i*thetaphaseG_shuffled) - mean(exp(1i*thetaphaseG_shuffled))) .* gammapowerG)); % -- compute surrogate dPAC
                 
                 % -- compute MI (Tort et al., 2010)
-                thetaphaseG_bin_shuffled = ceil( tiedrank( thetaphaseG_shuffled ) / (ntimepointsG / nbins) );
+                thetaphaseG_bin_shuffled = ceil( tiedrank( thetaphaseG_shuffled ) / (ntimepointsG / nbins) ); %  -- NOTE: tiedrank also exists in eeglab toolbox; when added to path, may cause conflict
                 gammapowerG_bin = zeros(1,nbins);
                 for k=1:nbins
                     gammapowerG_bin(k) = squeeze(mean(gammapowerG(thetaphaseG_bin_shuffled==k)));
@@ -310,17 +311,16 @@ end
 if coupling,
 
 
-    % -- in the paper, a particular colormap and colorscaling is used that 
-    % -- necessitates some third-party functions that are provided with the 
+    % -- in the paper, a particular colormap and colorscaling is used that
+    % -- necessitates some third-party functions that are provided with the
     % -- code;
-    % -- set to false to use default jet map
-
-    plot_like_paper = true;
-
+    % -- in the preample, set variable plot_like_paper to false to use default jet map
+    
     % -- when set to true, the othercolor function is used, which can be downloaded here: 
     % -- [http://nl.mathworks.com/matlabcentral/fileexchange/30564-othercolor]
     % -- the diverging_map function can be downloaded here:
     % -- [http://www.sandia.gov/~kmorel/documents/ColorMaps/diverging_map.m]
+    % -- NOTE: if zip file is downloaded properly, these functions need not be downloaded separately!
 
 %%
     %%%%%%
@@ -401,7 +401,7 @@ if coupling,
     contour(angleaxis,1:num_noise_levels,PLV_thresh,1,'k','LineWidth',1) % -- plot p<0.001 clusters as overlaid black line
 
     if plot_like_paper, 
-        addpath(genpath('Z:\PhD\dPAC\plot_like_paper')); % -- change path accordingly
+        addpath(genpath([currdir filesep 'plot_like_paper'])); % -- make sure this path is correct; the plot_like_paper folder is part of the zip file containing all code
         colormap(othercolor('BuDRd_18'))
     end
     
@@ -579,19 +579,19 @@ if coupling,
     thetaphase = angle(hilbert(thetafilt(1001:end-1000)));
     gammapower = abs(hilbert(gammafilt(1001:end-1000)));
 
-    subplot(411)
+    subplot(311)
     plot(t,real(gamma),'r'); hold on
     plot(t,abs(gamma),'r'); 
     plot(t,real(theta),'k'); box off
     set(gca,'xlim',[t(1) t(1000)],'xticklabel',{},'ylim',[-30 30])
     title('Pure theta-gamma coupling');
     
-    subplot(412);
+    subplot(312);
     plot(t,thetagammanoise,'k'); box off
     set(gca,'xlim',[t(3000) t(4000)],'xticklabel',{})
     title('Noise plus theta plus gamma')
 
-    subplot(413);
+    subplot(313);
     plot(t(1001:end-1000),(real(hilbert(thetafilt(1001:end-1000)))),'k'); hold on
     plot(t(1001:end-1000),(abs(hilbert(gammafilt(1001:end-1000)))),'r');
     plot(t(1001:end-1000),(real(hilbert(gammafilt(1001:end-1000)))),'r'); box off
